@@ -39,7 +39,7 @@ MODULE_LICENSE("Dual BSD/GPL");
 /*
  * Open the device; in fact, there's nothing to do here.
  */
-static int simple_open (struct inode *inode, struct file *filp)
+static int simple_open_test (struct inode *inode, struct file *filp)
 {
 	return 0;
 }
@@ -48,7 +48,7 @@ static int simple_open (struct inode *inode, struct file *filp)
 /*
  * Closing is just as simpler.
  */
-static int simple_release(struct inode *inode, struct file *filp)
+static int simple_release_test(struct inode *inode, struct file *filp)
 {
 	return 0;
 }
@@ -163,16 +163,16 @@ static void simple_setup_cdev(struct cdev *dev, int minor,
 /* Device 0 uses remap_pfn_range */
 static struct file_operations simple_remap_ops = {
 	.owner   = THIS_MODULE,
-	.open    = simple_open,
-	.release = simple_release,
+	.open    = simple_open_test,
+	.release = simple_release_test,
 	.mmap    = simple_remap_mmap,
 };
 
 /* Device 1 uses nopage */
 static struct file_operations simple_nopage_ops = {
 	.owner   = THIS_MODULE,
-	.open    = simple_open,
-	.release = simple_release,
+	.open    = simple_open_test,
+	.release = simple_release_test,
 	.mmap    = simple_nopage_mmap,
 };
 
