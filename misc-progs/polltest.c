@@ -37,7 +37,10 @@ int main(int argc, char **argv)
     while (1) {
         n=read(0, buffer, 4096);
         if (n >= 0)
-            write(1, buffer, n);
+            if (write(1, buffer, n) < 0) {
+		perror("write error");
+		exit (errno);
+	    }
 	n = poll(&pfd, 1, -1);
 	if (n < 0)
 	    break;
