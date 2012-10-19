@@ -139,7 +139,7 @@ static void skel_write_bulk_callback(struct urb *urb)
 	    !(urb->status == -ENOENT || 
 	      urb->status == -ECONNRESET ||
 	      urb->status == -ESHUTDOWN)) {
-		dbg("%s - nonzero write bulk status received: %d",
+		printk(KERN_DEBUG "%s - nonzero write bulk status received: %d",
 		    __FUNCTION__, urb->status);
 	}
 
