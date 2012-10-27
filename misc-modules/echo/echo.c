@@ -59,54 +59,55 @@ ssize_t echo_read(struct file *filp, char __user *ubuff, size_t count, loff_t *p
 	pr_debug("%s: f_flags: 0x%x\n",__FUNCTION__,filp->f_flags);
 		
 	//user trying to access an offset which is beyond the end of file 
-	if (*poffset >= dev->size)
+	down_write(&dev->sem);
+	if (*poffset >= dev->size) {
+		up_write(&dev->sem);
 		return 0;
+	}
 
 	//user trying to access more than eof, return bytes read till the eof
 	if (*poffset + count >= dev->size) 
 		//count = dev->size - *poffset;
 		count = dev->size;
 	//kspace --> uspace
-	down_write(&dev->sem);
 	if (copy_to_user(ubuff, (dev->data + *poffset), count) < 0) {
 		up_write(&dev->sem);
-		cdev_del(&echo_dev->cdev);
-		unregister_chrdev_region(device, count);
 		return -EFAULT;
 	}
 	//update the offset
-	up_write(&dev->sem);
 	*poffset += count;
+	up_write(&dev->sem);
 	return count;
 }
+
 //count is the size of requested data transfer
 ssize_t echo_write(struct file *filp, const char __user *ubuff, size_t count, loff_t *poffset)
 {
 	int ret;
 	struct echo_cdev *dev = filp->private_data;
 	pr_debug("%s: f_flags: 0x%x\n",__FUNCTION__,filp->f_flags);
-	dev->data = (char *)kmalloc(count, GFP_KERNEL);
-	if (!(dev->data)) {
-		printk(KERN_EMERG "%s: Not enough kernel buffers\n",__FUNCTION__);
-		return 0;
+	if (dev->data == NULL) {
+		dev->data = (char *)kmalloc(count, GFP_KERNEL);
+		if (!dev->data) {
+			printk(KERN_EMERG "%s: Not enough kernel buffers\n",__FUNCTION__);
+			return 0;
+		}
 	}
+	down_read(&dev->sem);
 	dev->size = count;
 	//uspace --> kspace
-	down_read(&dev->sem);
 	if (copy_from_user(dev->data, ubuff, count) < 0) {
 		up_read(&dev->sem);
-		cdev_del(&echo_dev->cdev);
-		kfree(echo_dev);
-		unregister_chrdev_region(device, count);
-		return -EINVAL;
+		return -EFAULT;
 	}
-	up_read(&dev->sem);
+	
 	*poffset += count;
 	ret = count;
 
 	if (dev->size < *poffset)
 		dev->size = *poffset;
-
+	
+	up_read(&dev->sem);
 	return ret;
 }
 
