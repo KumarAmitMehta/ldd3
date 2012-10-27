@@ -9,6 +9,7 @@
 #include <linux/version.h>
 #include <linux/uaccess.h> //copy_from/to_user()
 #include <linux/errno.h> //error code
+#include <linux/rwsem.h> //reader/write lock
 #include "echo.h"
 
 MODULE_LICENSE("GPL v2");
@@ -56,7 +57,7 @@ ssize_t echo_read(struct file *filp, char __user *ubuff, size_t count, loff_t *p
 {
 	struct echo_cdev *dev = filp->private_data;
 	pr_debug("%s: f_flags: 0x%x\n",__FUNCTION__,filp->f_flags);
-	
+		
 	//user trying to access an offset which is beyond the end of file 
 	if (*poffset >= dev->size)
 		return 0;
@@ -66,12 +67,15 @@ ssize_t echo_read(struct file *filp, char __user *ubuff, size_t count, loff_t *p
 		//count = dev->size - *poffset;
 		count = dev->size;
 	//kspace --> uspace
+	down_write(&dev->sem);
 	if (copy_to_user(ubuff, (dev->data + *poffset), count) < 0) {
+		up_write(&dev->sem);
 		cdev_del(&echo_dev->cdev);
 		unregister_chrdev_region(device, count);
 		return -EFAULT;
 	}
 	//update the offset
+	up_write(&dev->sem);
 	*poffset += count;
 	return count;
 }
@@ -88,12 +92,15 @@ ssize_t echo_write(struct file *filp, const char __user *ubuff, size_t count, lo
 	}
 	dev->size = count;
 	//uspace --> kspace
+	down_read(&dev->sem);
 	if (copy_from_user(dev->data, ubuff, count) < 0) {
+		up_read(&dev->sem);
 		cdev_del(&echo_dev->cdev);
 		kfree(echo_dev);
 		unregister_chrdev_region(device, count);
 		return -EINVAL;
 	}
+	up_read(&dev->sem);
 	*poffset += count;
 	ret = count;
 
@@ -137,6 +144,7 @@ static int __init echo_init(void)
 	memset(echo_dev, 0, sizeof(struct echo_cdev));
 	echo_dev->cdev.owner = THIS_MODULE;
 	echo_dev->cdev.ops = &echo_fs_ops;
+	init_rwsem(&echo_dev->sem);
 	cdev_init(&echo_dev->cdev, &echo_fs_ops);
 	device = MKDEV(nr_major, nr_minor);
 	//tell the kernel about this char device

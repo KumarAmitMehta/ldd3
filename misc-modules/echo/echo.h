@@ -9,6 +9,7 @@ int echo_release(struct inode *, struct file *);
 struct echo_cdev {
 	char *data;
 	unsigned long size; //amount of data stored
+	struct rw_semaphore sem;
 	struct cdev cdev;
 };
 #endif //__echo_H
