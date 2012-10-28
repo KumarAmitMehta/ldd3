@@ -9,7 +9,6 @@
 #include <linux/version.h>
 #include <linux/uaccess.h> //copy_from/to_user()
 #include <linux/errno.h> //error code
-#include <linux/rwsem.h> //reader/write lock
 #include "echo.h"
 
 MODULE_LICENSE("GPL v2");
@@ -59,9 +58,10 @@ ssize_t echo_read(struct file *filp, char __user *ubuff, size_t count, loff_t *p
 	pr_debug("%s: f_flags: 0x%x\n",__FUNCTION__,filp->f_flags);
 		
 	//user trying to access an offset which is beyond the end of file 
-	down_write(&dev->sem);
+	if (down_interruptible(&dev->sem)) 
+		return -ERESTARTSYS;
 	if (*poffset >= dev->size) {
-		up_write(&dev->sem);
+		up(&dev->sem);
 		return 0;
 	}
 
@@ -71,12 +71,12 @@ ssize_t echo_read(struct file *filp, char __user *ubuff, size_t count, loff_t *p
 		count = dev->size;
 	//kspace --> uspace
 	if (copy_to_user(ubuff, (dev->data + *poffset), count) < 0) {
-		up_write(&dev->sem);
+		up(&dev->sem);
 		return -EFAULT;
 	}
 	//update the offset
 	*poffset += count;
-	up_write(&dev->sem);
+	up(&dev->sem);
 	return count;
 }
 
@@ -86,18 +86,21 @@ ssize_t echo_write(struct file *filp, const char __user *ubuff, size_t count, lo
 	int ret;
 	struct echo_cdev *dev = filp->private_data;
 	pr_debug("%s: f_flags: 0x%x\n",__FUNCTION__,filp->f_flags);
+	if (down_interruptible(&dev->sem)) 
+		return -ERESTARTSYS;
 	if (dev->data == NULL) {
 		dev->data = (char *)kmalloc(count, GFP_KERNEL);
 		if (!dev->data) {
-			printk(KERN_EMERG "%s: Not enough kernel buffers\n",__FUNCTION__);
-			return 0;
+			up(&dev->sem);
+			return -ENOMEM;
+		} else {
+			memset(dev->data, 0, sizeof(count));
 		}
 	}
-	down_read(&dev->sem);
 	dev->size = count;
 	//uspace --> kspace
 	if (copy_from_user(dev->data, ubuff, count) < 0) {
-		up_read(&dev->sem);
+		up(&dev->sem);
 		return -EFAULT;
 	}
 	
@@ -107,7 +110,7 @@ ssize_t echo_write(struct file *filp, const char __user *ubuff, size_t count, lo
 	if (dev->size < *poffset)
 		dev->size = *poffset;
 	
-	up_read(&dev->sem);
+	up(&dev->sem);
 	return ret;
 }
 
@@ -145,7 +148,8 @@ static int __init echo_init(void)
 	memset(echo_dev, 0, sizeof(struct echo_cdev));
 	echo_dev->cdev.owner = THIS_MODULE;
 	echo_dev->cdev.ops = &echo_fs_ops;
-	init_rwsem(&echo_dev->sem);
+	//initialize the semaphore, before it is presented to the world
+	sema_init(&echo_dev->sem,1);
 	cdev_init(&echo_dev->cdev, &echo_fs_ops);
 	device = MKDEV(nr_major, nr_minor);
 	//tell the kernel about this char device
