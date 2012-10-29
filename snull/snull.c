@@ -28,7 +28,7 @@
 
 #include <linux/in.h>
 #include <linux/netdevice.h>   /* struct device, and other headers */
-#include <linux/etherdevice.h> /* eth_type_trans */
+#include <linux/etherdevice.h> /* eth_type_trans, eth_change_mtu */
 #include <linux/ip.h>          /* struct iphdr */
 #include <linux/tcp.h>         /* struct tcphdr */
 #include <linux/skbuff.h>
@@ -598,31 +598,6 @@ int snull_header(struct sk_buff *skb, struct net_device *dev,
 }
 
 
-
-
-
-/*
- * The "change_mtu" method is usually not needed.
- * If you need it, it must be like this.
- */
-int snull_change_mtu(struct net_device *dev, int new_mtu)
-{
-	unsigned long flags;
-	struct snull_priv *priv = netdev_priv(dev);
-	spinlock_t *lock = &priv->lock;
-    
-	/* check ranges */
-	if ((new_mtu < 68) || (new_mtu > 1500))
-		return -EINVAL;
-	/*
-	 * Do anything you need, and the accept the value
-	 */
-	spin_lock_irqsave(lock, flags);
-	dev->mtu = new_mtu;
-	spin_unlock_irqrestore(lock, flags);
-	return 0; /* success */
-}
-
 static const struct header_ops snull_header_ops = {
         .create  = snull_header,
 	.rebuild = snull_rebuild_header
@@ -635,7 +610,7 @@ static const struct net_device_ops snull_netdev_ops = {
 	.ndo_do_ioctl        = snull_ioctl,
 	.ndo_set_config      = snull_config,
 	.ndo_get_stats       = snull_stats,
-	.ndo_change_mtu      = snull_change_mtu,
+	.ndo_change_mtu      = eth_change_mtu,
 	.ndo_tx_timeout      = snull_tx_timeout
 };
 
