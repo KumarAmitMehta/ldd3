@@ -202,6 +202,7 @@ static void snull_rx_ints(struct net_device *dev, int enable)
 
 int snull_open(struct net_device *dev)
 {
+	printk("Entering %s\n",__FUNCTION__);
 	/* request_region(), request_irq(), ....  (like fops->open) */
 
 	/* 
@@ -212,6 +213,12 @@ int snull_open(struct net_device *dev)
 	memcpy(dev->dev_addr, "\0SNUL0", ETH_ALEN);
 	if (dev == snull_devs[1])
 		dev->dev_addr[ETH_ALEN-1]++; /* \0SNUL1 */
+
+	if (!is_valid_ether_addr(dev->dev_addr)) {
+		printk(KERN_EMERG "Ethernet address not valid\n");
+		return -EADDRNOTAVAIL;
+	}
+	
 	netif_start_queue(dev);
 	return 0;
 }
