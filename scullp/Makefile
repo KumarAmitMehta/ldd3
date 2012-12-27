@@ -9,7 +9,7 @@ else
   DEBFLAGS = -O2
 endif
 
-EXTRA_CFLAGS += $(DEBFLAGS) -I$(LDDINC)
+ccflags-y += $(DEBFLAGS) -I$(LDDINC)
 
 TARGET = scullp
 
@@ -39,7 +39,7 @@ clean:
 
 
 depend .depend dep:
-	$(CC) $(EXTRA_CFLAGS) -M *.c > .depend
+	$(CC) $(ccflags) -M *.c > .depend
 
 ifeq (.depend,$(wildcard .depend))
 include .depend
