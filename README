@@ -26,9 +26,11 @@ Compiling
 The example drivers should compile and work with popular kernel versions.
 Right now version 2.6.32, 2.6.35 and linux-next are supported.
 
-The tree has three branches:
+The tree has five branches:
 * v2.6.32
 * v2.6.35
+* v2.6.37
+* v3.10
 * master
 
 These branches will compile and work with the trees:
